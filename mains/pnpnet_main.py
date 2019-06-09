@@ -129,7 +129,7 @@ def train(model, train_loader, test_loader, gen_loader, configs):
         {'params': model.h_mean.parameters(), 'lr': 0.1 * configs.lr},
         {'params': model.h_var.parameters(), 'lr': 0.1 * configs.lr},
         {'params': model.writer.parameters()},
-        {'params': model.vis_dist.parameters()},
+        #{'params': model.vis_dist.parameters()},
         {'params': model.pos_dist.parameters()},
         {'params': model.combine.parameters()},
         {'params': model.describe.parameters()},
