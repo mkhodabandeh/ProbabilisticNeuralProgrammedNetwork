@@ -58,7 +58,12 @@ class PNPNet(nn.Module):
         self.bg_bias = bg_bias
         self.normalize = normalize
         self.debug_mode = debug_mode
-
+        
+        self.color = ['gray', 'green', 'blue', 'purple', 'yellow', 'cyan', 'brown']
+        self.size = ['large', 'small']
+        self.shape = ['sphere', 'cube', 'cylinder']
+        self.material = ['rubber', 'metal']
+        self.order = [self.color, self.size, self.shape, self.material]
         # dictionary
         self.dictionary = dictionary
 
@@ -74,7 +79,7 @@ class PNPNet(nn.Module):
                              nlayers=nlayers)
 
         # visual words
-        self.vis_dist = ConceptMapper(word_size, len(dictionary))
+        #self.vis_dist = ConceptMapper(word_size, len(dictionary))
         self.pos_dist = ConceptMapper(pos_size, len(dictionary))
 
         self.renderer = DistributionRender(hiddim=latentdim)
@@ -196,6 +201,14 @@ class PNPNet(nn.Module):
 
         return code
 
+    def mehran_get_code(self, word):
+        for dictionary in self.order:
+            if word in dictionary:
+                code = Variable(torch.zeros(1, len(dictionary))).cuda()
+                code[0, dictionary.index(word)] = 1
+        return code
+
+       
     def compose_tree(self, treex, latent_canvas_size):
         for i in range(0, treex.num_children):
             treex.children[i] = self.compose_tree(treex.children[i], latent_canvas_size)
