@@ -32,7 +32,7 @@ kl_beta: 5
 alpha_ub: 0.6
 pos_beta: 1
 warmup_iter: 100
-sample_interval: 20
-validate_interval: 100
-save_interval: 30
+sample_interval: 1
+validate_interval: 500
+save_interval: 5 
 
