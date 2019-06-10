@@ -1,16 +1,17 @@
 # Random seed
 seed: 12138
 #
-mode: train
+mode: test
 dataset: CLEVR
-# checkpoint: ./results/CLEVR_64_MULTI_LARGE/PNP-Net-5/checkpoints/model_epoch_360.pth
-checkpoint:
+#checkpoint: ./results/CLEVR_64_MULTI_LARGE/PNP-Net-5/checkpoints/model_epoch_260.pth
+checkpoint: ./checkpoints/model_epoch_265.pth
 data_folder: CLEVR_64_MULTI_LARGE
 base_dir: ./data/CLEVR/
 exp_dir_name: PNP-Net
+num_samples: 100
 # Hyper parameter
 hiddim: 160
-latentdim: 64
+latentdim: 15
 pos_size: [8, 1, 1]
 nr_resnet: 5
 word_size: 16

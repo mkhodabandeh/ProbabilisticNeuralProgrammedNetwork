@@ -109,7 +109,7 @@ def main():
     elif configs.mode == 'test':
         print(exp_dir)
         print('Start generating...')
-        generate(model, gen_loader=gen_loader, num_sample=2, target_dir=exp_dir)
+        generate(model, gen_loader=gen_loader, num_sample=configs.num_samples, target_dir=exp_dir)
     elif configs.mode == 'visualize':
         print(exp_dir)
         print('Start visualizing...')
@@ -166,7 +166,7 @@ def generate(model, gen_loader, num_sample, target_dir):
     epoch_end = False
     sample_dirs = []
     for i in range(num_sample):
-        sample_dir = osp.join(target_dir, 'test-data-{}'.format(i))
+        sample_dir = osp.join(target_dir, 'test-data-{}'.format(0))
         if not osp.isdir(sample_dir):
             os.mkdir(sample_dir)
         sample_dirs.append(sample_dir)
@@ -192,9 +192,9 @@ def generate(model, gen_loader, num_sample, target_dir):
                 samples = np.clip(np.stack(samples_image_dict[i], axis=0), -1, 1)
                 for j in range(num_sample):
                     sample = samples[j]
-                    scipy.misc.imsave(osp.join(sample_dirs[j], 'image{:05d}.png'.format(image_idx)), sample)
+                    scipy.misc.imsave(osp.join(sample_dirs[j], 'image{:05d}_{:d}.png'.format(image_idx, j)), sample)
+                    print(j)
                 image_idx += 1
-
 
 def sample_tree(model, test_loader, tree_idx, base_dir, num_sample):
     """
