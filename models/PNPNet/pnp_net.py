@@ -59,11 +59,12 @@ class PNPNet(nn.Module):
         self.normalize = normalize
         self.debug_mode = debug_mode
         
-        self.color = ['gray', 'green', 'blue', 'purple', 'yellow', 'cyan', 'brown']
+        self.color = ['gray', 'green', 'blue', 'purple', 'yellow', 'cyan', 'brown', 'red']
         self.size = ['large', 'small']
         self.shape = ['sphere', 'cube', 'cylinder']
         self.material = ['rubber', 'metal']
         self.order = [self.color, self.size, self.shape, self.material]
+        self.dimension = sum(len(l) for l in self.order)
         # dictionary
         self.dictionary = dictionary
 
@@ -201,13 +202,18 @@ class PNPNet(nn.Module):
 
         return code
 
-    def mehran_get_code(self, word):
+    def mehran_get_code(self, words):
+        variables = []
         for dictionary in self.order:
-            if word in dictionary:
-                code = Variable(torch.zeros(1, len(dictionary))).cuda()
-                code[0, dictionary.index(word)] = 1
-        return code
+            for word in words:
+                if word in dictionary:
+                    code = Variable(torch.zeros(1, len(dictionary))).cuda()
+                    code[0, dictionary.index(word)] = 1
+                    variables.append(code)
+        return torch.cat(variables, 1) 
 
+    def mehran_transform(self, var, hw):
+        return var.view(-1, self.dimension, 1, 1).repeat(1, 1, hw[0], hw[1])
        
     def compose_tree(self, treex, latent_canvas_size):
         for i in range(0, treex.num_children):
@@ -215,41 +221,50 @@ class PNPNet(nn.Module):
 
         # one hot embedding of a word
         ohe = self.get_code(self.dictionary, treex.word)
-
         if treex.function == 'combine':
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
+                #vis_dist_child = treex.children[0].vis_dist
+                #vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
                 # visual position
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.combine(pos_dist, pos_dist_child, 'pos')
 
-            treex.vis_dist = vis_dist
+            #treex.vis_dist = vis_dist
             treex.pos_dist = pos_dist
 
         elif treex.function == 'describe':
             # blend visual words
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.describe(vis_dist_child, vis_dist, 'vis')
+                #vis_dist_child = treex.children[0].vis_dist
+                #vis_dist = self.describe(vis_dist_child, vis_dist, 'vis')
                 # visual position
+                a = treex
+                words = [a.word]
+                while a.num_children > 0:
+                    a = a.children[0]
+                    words.append(a.word)
+
+                vis_dist = self.mehran_get_code(words)
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.describe(pos_dist_child, pos_dist, 'pos')
 
             treex.pos_dist = pos_dist
-
             # regress bbox
+            # treex.bbox contains the ground truth bounding box information
             treex.pos = np.maximum(treex.bbox[2:] // self.ds, [1, 1])
+            # now treex.pos is a tuple (w, h) read from groundtruth
             target_box = Variable(torch.from_numpy(np.array(treex.bbox[2:])[np.newaxis, ...].astype(np.float32))).cuda()
             regress_box, kl_box = self.box_vae(target_box, prior=treex.pos_dist)
+            # this box_vae is trained solely on the bounding box locations of objects
             treex.pos_loss = self.pos_criterion(regress_box, target_box) + kl_box
 
+            vis_dist = self.mehran_transform(vis_dist, treex.pos)
             if treex.parent == None:
                 ones = self.get_ones(torch.Size([1, 1]))
                 if not self.bg_bias:
@@ -260,17 +275,18 @@ class PNPNet(nn.Module):
                                    self.bias_var(ones).view(*latent_canvas_size)]
                 b = np.maximum(treex.bbox // self.ds, [0, 0, 1, 1])
 
-                bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
-                                                'assign'), \
-                               self.assign_util(bg_vis_dist[1], b,
-                                                self.transform(vis_dist[1], treex.pos, variance=True),
-                                                'assign')]
-                vis_dist = bg_vis_dist
+                #this is where the mask is created using the groundtruth data! treex.pos as we saw earlier. It doesn't use the VAE generated bbox
+                #bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
+                #                                'assign'), \
+                #               self.assign_util(bg_vis_dist[1], b,
+                #                                self.transform(vis_dist[1], treex.pos, variance=True),
+                #                                'assign')]
+                bg_vis_dist = self.assign_util(bg_vis_dist[0], b, vis_dist,'assign')
+                vis_dist = [bg_vis_dist, bg_vis_dist]
             else:
                 try:
                     # resize vis_dist
-                    vis_dist = [self.transform(vis_dist[0], treex.pos), \
-                                self.transform(vis_dist[1], treex.pos, variance=True)]
+                    vis_dist = [vis_dist, vis_dist]
                 except:
                     import IPython;
                     IPython.embed()
@@ -409,27 +425,31 @@ class PNPNet(nn.Module):
         # one hot embedding of a word
         ohe = self.get_code(self.dictionary, treex.word)
         if treex.function == 'combine':
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
+                #vis_dist_child = treex.children[0].vis_dist
+                #vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
                 # visual position
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.combine(pos_dist, pos_dist_child, 'pos')
 
-            treex.vis_dist = vis_dist
+            #treex.vis_dist = vis_dist
             treex.pos_dist = pos_dist
-
         elif treex.function == 'describe':
             # blend visual words
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.describe(vis_dist_child, vis_dist, 'vis')
+                a = treex
+                words = [a.word]
+                while a.num_children > 0:
+                    a = a.children[0]
+                    words.append(a.word)
+
+                vis_dist = self.mehran_get_code(words)
                 # visual position
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.describe(pos_dist_child, pos_dist, 'pos')
@@ -441,6 +461,7 @@ class PNPNet(nn.Module):
                                 int(self.ds),
                                 self.im_size).flatten() // self.ds
 
+            vis_dist = self.mehran_transform(vis_dist, treex.pos)
             if treex.parent == None:
                 ones = self.get_ones(torch.Size([1, 1]))
                 if not self.bg_bias:
@@ -452,18 +473,20 @@ class PNPNet(nn.Module):
                 b = [int(latent_canvas_size[2]) // 2 - treex.pos[0] // 2,
                      int(latent_canvas_size[3]) // 2 - treex.pos[1] // 2, treex.pos[0], treex.pos[1]]
 
-                bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
-                                                'assign'), \
-                               self.assign_util(bg_vis_dist[1], b,
-                                                self.transform(vis_dist[1], treex.pos, variance=True),
-                                                'assign')]
+                #bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
+                #                                'assign'), \
+                #               self.assign_util(bg_vis_dist[1], b,
+                #                                self.transform(vis_dist[1], treex.pos, variance=True),
+                #                                'assign')]
+                bg_vis_dist = self.assign_util(bg_vis_dist[0], b, vis_dist,'assign')
+                vis_dist = [bg_vis_dist, bg_vis_dist]
 
-                vis_dist = bg_vis_dist
                 treex.offsets = b
             else:
+                vis_dist = [vis_dist, vis_dist]
                 # resize vis_dist
-                vis_dist = [self.transform(vis_dist[0], treex.pos), \
-                            self.transform(vis_dist[1], treex.pos, variance=True)]
+                #vis_dist = [self.transform(vis_dist[0], treex.pos), \
+                #            self.transform(vis_dist[1], treex.pos, variance=True)]
 
             treex.vis_dist = vis_dist
 

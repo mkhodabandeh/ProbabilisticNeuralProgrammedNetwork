@@ -1,7 +1,7 @@
 # Random seed
 seed: 12138
 #
-mode: train
+mode: train 
 dataset: CLEVR
 # checkpoint: ./results/CLEVR_64_MULTI_LARGE/PNP-Net-5/checkpoints/model_epoch_360.pth
 checkpoint:
@@ -10,7 +10,7 @@ base_dir: ./data/CLEVR/
 exp_dir_name: PNP-Net
 # Hyper parameter
 hiddim: 160
-latentdim: 64
+latentdim: 15
 pos_size: [8, 1, 1]
 nr_resnet: 5
 word_size: 16
@@ -31,7 +31,7 @@ kl_beta: 5
 alpha_ub: 0.6
 pos_beta: 1
 warmup_iter: 100
-sample_interval: 20
-validate_interval: 100
-save_interval: 30
+sample_interval: 1
+validate_interval: 500
+save_interval: 5 
 
