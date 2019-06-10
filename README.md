@@ -1,5 +1,6 @@
 # Simplified Probabilistic Neural Programmed Network
 
+In this repository, I removed the Tranform, Combine, and Describe modules along with Gated Product of Experts, and replaced them by a one-hot encoding vectors representing object attributes.
 
 [Probabilistic Neural Programmed Networks for Scene Generation](http://www2.cs.sfu.ca/~mori/research/papers/deng-nips18.pdf)
 
