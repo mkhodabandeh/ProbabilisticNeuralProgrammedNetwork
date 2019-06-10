@@ -1,6 +1,6 @@
-# Probabilistic Neural Programmed Network
+# Verifying the Results of Probabilistic Neural Programmed Network
 
-This is the official implementation for paper: 
+This repository tries to verify the results of the following paper using their official implementation:
 
 [Probabilistic Neural Programmed Networks for Scene Generation](http://www2.cs.sfu.ca/~mori/research/papers/deng-nips18.pdf)
 
@@ -8,20 +8,6 @@ This is the official implementation for paper:
 
 
 Published on NeurIPS 2018
-
-[Poster](http://www.sfu.ca/~zhiweid/papers/PNP_Net_Poster.pdf)
-
-If you find this code helpful in your research, please cite
-
-```
-@inproceedings{deng2018probabilistic,
-  title={Probabilistic Neural Programmed Networks for Scene Generation},
-  author={Deng, Zhiwei and Chen, Jiacheng and Fu, Yifang and Mori, Greg},
-  booktitle={Advances in Neural Information Processing Systems},
-  pages={4032--4042},
-  year={2018}
-}
-```
 
 Other re-implementations:
 
