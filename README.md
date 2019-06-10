@@ -1,6 +1,5 @@
-# Verifying the Results of Probabilistic Neural Programmed Network
+# Simplified Probabilistic Neural Programmed Network
 
-This repository tries to verify the results of the following paper using their official implementation:
 
 [Probabilistic Neural Programmed Networks for Scene Generation](http://www2.cs.sfu.ca/~mori/research/papers/deng-nips18.pdf)
 
@@ -9,9 +8,10 @@ This repository tries to verify the results of the following paper using their o
 
 Published on NeurIPS 2018
 
-Other re-implementations:
 
-[Tensorflow version](https://github.com/mihirp1998/ProbabilisticNeuralProgrammedNetwork_Tensorflow)
+
+
+
 
 ## Contents
 1. [Overview](#overview)
