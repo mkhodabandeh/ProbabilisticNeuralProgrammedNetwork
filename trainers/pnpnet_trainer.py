@@ -20,6 +20,7 @@ class PNPNetTrainer:
         self.gen_loader = gen_loader
         self.optimizer = optimizer
         self.configs = configs
+        self.iter = 0
 
     def train_epoch(self, epoch_num, timestamp_start):
         self.model.train()
@@ -53,16 +54,17 @@ class PNPNetTrainer:
             train_pos_loss.update(pos_loss.item(), self._total(data), data.size(0))
 
             if batch_idx % 30 == 0:
-                scipy.misc.imsave(osp.join(self.configs.exp_dir, 'samples', 'generativenmn_data.png'),
+                scipy.misc.imsave(osp.join(self.configs.exp_dir, 'samples', 'generativenmn_data_{}.png'.format(self.iter)),
                                   (data.cpu().data.numpy().transpose(0, 2, 3, 1)[0] + 1) / 2.0)
-                scipy.misc.imsave(osp.join(self.configs.exp_dir, 'samples', 'generativenmn_reconstruction.png'), \
+                scipy.misc.imsave(osp.join(self.configs.exp_dir, 'samples', 'generativenmn_reconstruction_{}.png'.format(self.iter)), \
                                   (recon.cpu().data.numpy().transpose(0, 2, 3, 1)[0] + 1) / 2.0)
-                scipy.misc.imsave(osp.join(self.configs.exp_dir, 'samples', 'generativenmn_reconstruction_clip.png'), \
+                scipy.misc.imsave(osp.join(self.configs.exp_dir, 'samples', 'generativenmn_reconstruction_clip_{}.png'.format(self.iter)), \
                                   np.clip(recon.cpu().data.numpy().transpose(0, 2, 3, 1)[0], -1, 1))
                 print('Epoch:{0}\tIter:{1}/{2}\tRecon {3:.6f}\t KL {4:.6f}'.format(epoch_num, batch_idx,
                                                                                    len(self.train_loader) // self.configs.batch_size,
                                                                                    train_rec_loss.batch_avg, train_kld_loss.batch_avg))
 
+            self.iter += 1
             self.model.clean_tree(trees)
             batch_idx += 1
 
