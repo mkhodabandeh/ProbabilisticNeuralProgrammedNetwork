@@ -1,15 +1,8 @@
 # Simplified Probabilistic Neural Programmed Network
 
-In this repository, I removed the Tranform, Combine, and Describe modules along with Gated Product of Experts, and replaced them by a one-hot encoding vectors representing object attributes.
+In this repository, I removed the Tranform, Combine, and Describe modules along with Gated Product of Experts, and replaced them by a one-hot encoding vectors representing object attributes. I got similar results to the original PNP paper. I haven't been able to find an advantage over the proposed method by:
 
 [Probabilistic Neural Programmed Networks for Scene Generation](http://www2.cs.sfu.ca/~mori/research/papers/deng-nips18.pdf)
-
-[Zhiwei Deng](http://www.sfu.ca/~zhiweid/), [Jiacheng Chen](http://jcchen.me/), [Yifang Fu](https://yifangfu.wordpress.com/) and [Greg Mori](http://www2.cs.sfu.ca/~mori/)
-
-
-Published on NeurIPS 2018
-
-
 
 
 
@@ -44,13 +37,6 @@ For running our measurement (a semantic correctness score based on detector), ch
 Dataset:
 [64x64 CLEVR-G](https://drive.google.com/open?id=10yP0ki9EqxOacCL08mDQiDbVvUeO8m41).
 Please download and zip it into **./data/CLEVR** if you want to use it with our model.
-
-**Pre-trained Model**
-
-This is the pretrained model for PNP-Net no the SIMPLE-net
-
-- [PNP-Net CLEVR-G 64x64](https://drive.google.com/open?id=1VusqEqIHZibRqKbXyIxJDxBRTp9AZP0y)
-
 
 ### COLOR-MNIST
 
@@ -122,13 +108,20 @@ Layout module puts latent distributions of two different objects (from its child
 
 ## Training
 
-The default training can be started by: 
+The default training of the SIMPLE net can be started by: 
+
+```bash
+python mains/pnpnet_main.py --config_path configs/simplified_pnp_net_configs.yaml
+```
+
+The default training of the PNP net can be started by: 
 
 ```bash
 python mains/pnpnet_main.py --config_path configs/pnp_net_configs.yaml
 ```
 
 Make sure that you are in the project root directory when typing the above command. 
+
 
 
 
