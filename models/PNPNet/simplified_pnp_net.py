@@ -58,10 +58,19 @@ class PNPNet(nn.Module):
         self.bg_bias = bg_bias
         self.normalize = normalize
         self.debug_mode = debug_mode
-
+        
+        self.color = ['gray', 'green', 'blue', 'purple', 'yellow', 'cyan', 'brown', 'red']
+        self.size = ['large', 'small']
+        self.shape = ['sphere', 'cube', 'cylinder']
+        self.material = ['rubber', 'metal']
+        #self.dictionaries = [self.shape, self.material, self.color, self.size]
+        #gt order -> shape, material, color, size
+        self.dictionaries = [self.color, self.size, self.shape, self.material]
+        #self.order = [2, 3, 0, 1]
+        self.dimension = sum(len(l) for l in self.dictionaries)
         # dictionary
         self.dictionary = dictionary
-        # [u'brown', u'cylinder', u'cube', u'left-front', u'yellow', u'sphere', u'right', u'right-front', u'right-behind', u'cyan', u'blue', u'gray', u'rubber', u'purple', u'metal', u'left-behind', u'green', u'red', u'left', 'small', 'large']
+
         ########## modules ##########
         # proposal networks
         self.reader = Reader(indim=3, hiddim=hiddim, outdim=hiddim, ds_times=self.downsample, normalize=normalize,
@@ -74,7 +83,7 @@ class PNPNet(nn.Module):
                              nlayers=nlayers)
 
         # visual words
-        self.vis_dist = ConceptMapper(word_size, len(dictionary))
+        #self.vis_dist = ConceptMapper(word_size, len(dictionary))
         self.pos_dist = ConceptMapper(pos_size, len(dictionary))
 
         self.renderer = DistributionRender(hiddim=latentdim)
@@ -192,53 +201,90 @@ class PNPNet(nn.Module):
 
     def get_code(self, dictionary, word):
         code = Variable(torch.zeros(1, len(dictionary))).cuda()
-        #print(word, dictionary.index(word))
-        code[0, dictionary.index(word)] = 1
-        #code[0, dictionary.index('cube')] = 1
+        if word in dictionary:
+            code[0, dictionary.index(word)] = 1
 
         return code
 
+    def mehran_get_code(self, words):
+        variables = []
+        for dictionary in self.dictionaries:
+            code = Variable(torch.zeros(1, len(dictionary))).cuda()
+            seen = False
+            for word in words:
+                if word in dictionary:
+                    code[0, dictionary.index(word)] = 1
+                    seen = True
+            if not seen:
+                code = Variable(torch.ones(1, len(dictionary))).cuda() / (1.0 * len(dictionary))
+
+            variables.append(code)
+        return torch.cat(variables, 1)
+
+
+    #def mehran_get_code(self, words):
+    #    # if attribute orders don't match
+    #    variables = []
+    #    for dictionary, word in zip(self.dictionaries, words):
+    #        code = Variable(torch.zeros(1, len(dictionary))).cuda()
+    #        if word != 'zero':
+    #            code[0, dictionary.index(word)] = 1
+    #        variables.append(code)
+    #    return torch.cat(variables[self.order], 1)
+
+    def mehran_transform(self, var, hw):
+        return var.view(-1, self.dimension, 1, 1).repeat(1, 1, hw[0], hw[1])
+       
     def compose_tree(self, treex, latent_canvas_size):
         for i in range(0, treex.num_children):
             treex.children[i] = self.compose_tree(treex.children[i], latent_canvas_size)
 
         # one hot embedding of a word
         ohe = self.get_code(self.dictionary, treex.word)
-
         if treex.function == 'combine':
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
+                #vis_dist_child = treex.children[0].vis_dist
+                #vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
                 # visual position
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.combine(pos_dist, pos_dist_child, 'pos')
 
-            treex.vis_dist = vis_dist
+            #treex.vis_dist = vis_dist
             treex.pos_dist = pos_dist
 
         elif treex.function == 'describe':
             # blend visual words
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.describe(vis_dist_child, vis_dist, 'vis')
+                #vis_dist_child = treex.children[0].vis_dist
+                #vis_dist = self.describe(vis_dist_child, vis_dist, 'vis')
                 # visual position
+                a = treex
+                words = [a.word]
+                while a.num_children > 0:
+                    a = a.children[0]
+                    words.append(a.word)
+
+                vis_dist = self.mehran_get_code(words)
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.describe(pos_dist_child, pos_dist, 'pos')
 
             treex.pos_dist = pos_dist
-
             # regress bbox
+            # treex.bbox contains the ground truth bounding box information
             treex.pos = np.maximum(treex.bbox[2:] // self.ds, [1, 1])
+            # now treex.pos is a tuple (w, h) read from groundtruth
             target_box = Variable(torch.from_numpy(np.array(treex.bbox[2:])[np.newaxis, ...].astype(np.float32))).cuda()
             regress_box, kl_box = self.box_vae(target_box, prior=treex.pos_dist)
+            # this box_vae is trained solely on the bounding box locations of objects
             treex.pos_loss = self.pos_criterion(regress_box, target_box) + kl_box
 
+            vis_dist = self.mehran_transform(vis_dist, treex.pos)
             if treex.parent == None:
                 ones = self.get_ones(torch.Size([1, 1]))
                 if not self.bg_bias:
@@ -249,17 +295,18 @@ class PNPNet(nn.Module):
                                    self.bias_var(ones).view(*latent_canvas_size)]
                 b = np.maximum(treex.bbox // self.ds, [0, 0, 1, 1])
 
-                bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
-                                                'assign'), \
-                               self.assign_util(bg_vis_dist[1], b,
-                                                self.transform(vis_dist[1], treex.pos, variance=True),
-                                                'assign')]
-                vis_dist = bg_vis_dist
+                #this is where the mask is created using the groundtruth data! treex.pos as we saw earlier. It doesn't use the VAE generated bbox
+                #bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
+                #                                'assign'), \
+                #               self.assign_util(bg_vis_dist[1], b,
+                #                                self.transform(vis_dist[1], treex.pos, variance=True),
+                #                                'assign')]
+                bg_vis_dist = self.assign_util(bg_vis_dist[0], b, vis_dist,'assign')
+                vis_dist = [bg_vis_dist, bg_vis_dist]
             else:
                 try:
                     # resize vis_dist
-                    vis_dist = [self.transform(vis_dist[0], treex.pos), \
-                                self.transform(vis_dist[1], treex.pos, variance=True)]
+                    vis_dist = [vis_dist, vis_dist]
                 except:
                     import IPython;
                     IPython.embed()
@@ -346,20 +393,6 @@ class PNPNet(nn.Module):
         else:
             return []
 
-    def generate_x(self, x, treex, treeindex=None):
-        ################################
-        ##    input: images, trees    ##
-        ################################
-        h = self.reader(x)
-        # proposal distribution
-        prior_mean = self.h_mean(h)
-        prior_var = self.h_var(h)
-
-        z_map = self.sampler(prior_mean, prior_var)
-
-        rec = self.writer(z_map)
-
-        return rec
     def generate(self, x, treex, treeindex=None):
         ################################
         ##    input: images, trees    ##
@@ -412,27 +445,31 @@ class PNPNet(nn.Module):
         # one hot embedding of a word
         ohe = self.get_code(self.dictionary, treex.word)
         if treex.function == 'combine':
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
+                #vis_dist_child = treex.children[0].vis_dist
+                #vis_dist = self.combine(vis_dist, vis_dist_child, 'vis')
                 # visual position
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.combine(pos_dist, pos_dist_child, 'pos')
 
-            treex.vis_dist = vis_dist
+            #treex.vis_dist = vis_dist
             treex.pos_dist = pos_dist
-
         elif treex.function == 'describe':
             # blend visual words
-            vis_dist = self.vis_dist(ohe)
+            #vis_dist = self.vis_dist(ohe)
             pos_dist = self.pos_dist(ohe)
             if treex.num_children > 0:
                 # visual content
-                vis_dist_child = treex.children[0].vis_dist
-                vis_dist = self.describe(vis_dist_child, vis_dist, 'vis')
+                a = treex
+                words = [a.word]
+                while a.num_children > 0:
+                    a = a.children[0]
+                    words.append(a.word)
+
+                vis_dist = self.mehran_get_code(words)
                 # visual position
                 pos_dist_child = treex.children[0].pos_dist
                 pos_dist = self.describe(pos_dist_child, pos_dist, 'pos')
@@ -444,8 +481,7 @@ class PNPNet(nn.Module):
                                 int(self.ds),
                                 self.im_size).flatten() // self.ds
 
-            #print treex.pos
-            #treex.pos = [6, 5]
+            vis_dist = self.mehran_transform(vis_dist, treex.pos)
             if treex.parent == None:
                 ones = self.get_ones(torch.Size([1, 1]))
                 if not self.bg_bias:
@@ -454,25 +490,23 @@ class PNPNet(nn.Module):
                 else:
                     bg_vis_dist = [self.bias_mean(ones).view(*latent_canvas_size), \
                                    self.bias_var(ones).view(*latent_canvas_size)]
-
-
                 b = [int(latent_canvas_size[2]) // 2 - treex.pos[0] // 2,
                      int(latent_canvas_size[3]) // 2 - treex.pos[1] // 2, treex.pos[0], treex.pos[1]]
 
-                #b[:2] = [7, 8]
-                #b[:2] = [6, 6]
-                bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
-                                                'assign'), \
-                               self.assign_util(bg_vis_dist[1], b,
-                                                self.transform(vis_dist[1], treex.pos, variance=True),
-                                                'assign')]
+                #bg_vis_dist = [self.assign_util(bg_vis_dist[0], b, self.transform(vis_dist[0], treex.pos),
+                #                                'assign'), \
+                #               self.assign_util(bg_vis_dist[1], b,
+                #                                self.transform(vis_dist[1], treex.pos, variance=True),
+                #                                'assign')]
+                bg_vis_dist = self.assign_util(bg_vis_dist[0], b, vis_dist,'assign')
+                vis_dist = [bg_vis_dist, bg_vis_dist]
 
-                vis_dist = bg_vis_dist
                 treex.offsets = b
             else:
+                vis_dist = [vis_dist, vis_dist]
                 # resize vis_dist
-                vis_dist = [self.transform(vis_dist[0], treex.pos), \
-                            self.transform(vis_dist[1], treex.pos, variance=True)]
+                #vis_dist = [self.transform(vis_dist[0], treex.pos), \
+                #            self.transform(vis_dist[1], treex.pos, variance=True)]
 
             treex.vis_dist = vis_dist
 
