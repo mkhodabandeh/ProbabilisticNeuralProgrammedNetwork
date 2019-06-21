@@ -3,11 +3,10 @@ seed: 12138
 #
 mode: sample
 dataset: CLEVR
-#checkpoint:
-checkpoint: /home/mkhodabandeh/projects/research/ProbabilisticNeuralProgrammedNetwork/results/CLEVR_64_MULTI_LARGE/PNP-Net/checkpoints/model_epoch_360.pth
+checkpoint:
 data_folder: CLEVR_64_MULTI_LARGE
-base_dir: /home/mkhodabandeh/projects/research/ProbabilisticNeuralProgrammedNetwork/data/CLEVR/
-project_dir: /home/mkhodabandeh/projects/research/ProbabilisticNeuralProgrammedNetwork
+base_dir: ./data/CLEVR
+project_dir: /home/
 net: PNP # PNP or SIMPLE
 exp_dir_name: PNP-Net
 generate_one: True
