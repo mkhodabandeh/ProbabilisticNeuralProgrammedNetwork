@@ -4,10 +4,9 @@ seed: 12138
 mode: train
 dataset: CLEVR
 checkpoint:
-#checkpoint: /home/mkhodabandeh/projects/research/zhiwei/ProbabilisticNeuralProgrammedNetwork/checkpoints/model_epoch_265.pth
 data_folder: CLEVR_64_MULTI_LARGE
-base_dir: /share/storage/mkhodabandeh/research/zhiwei/ProbabilisticNeuralProgrammedNetwork/data/CLEVR
-project_dir: /share/storage/mkhodabandeh/research/zhiwei/ProbabilisticNeuralProgrammedNetwork
+base_dir: ./data/CLEVR
+project_dir: /home/
 exp_dir_name: Simple-Net-all
 net: SIMPLE
 num_samples: 100
