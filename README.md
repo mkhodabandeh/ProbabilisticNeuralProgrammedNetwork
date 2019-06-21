@@ -27,18 +27,6 @@ Published on NeurIPS 2018
 8. [Results](#results)
 
 
-## Overview
-
-Generating scenes from rich and complex semantics is an important step towards understanding the visual world. Probabilistic Neural Programmed Network (PNP-Net) brings symbolic methods into generative models, it exploits a set of **reusable neural modules** to compose latent distributions for scenes described by complex semantics in a **programmatic** manner, a decoder can then sample from latent scene distributions and generate realistic images. PNP-Net is naturally formulated as a learnable prior in canonical VAE framework to learn the parameters efficiently.
-
-
-
-<div align='center'>
-  <img src='images/pipeline.png' width='512px'>
-</div>
-
-
-
 ## Environment
 
 All code was tested on Ubuntu 16.04 with Python 2.7 and **PyTorch 0.4.0** (but the code should also work well with Python 3). To install required environment, run:
@@ -53,13 +41,13 @@ For running our measurement (a semantic correctness score based on detector), ch
 
 ### CLEVR-G
 
-We used the released code of [CLEVR (Johnson et al.)](https://arxiv.org/pdf/1612.06890.pdf) to generate a modified CLEVR dataset for the task of scene image generation, and we call it CLEVR-G. The generation code is in the [submodule](https://github.com/woodfrog/clevr-dataset-gen/tree/42a5c4914bbae49a0cd36cf96607c05111394ddc). 
-
-We also provide the [64x64 CLEVR-G](https://drive.google.com/open?id=10yP0ki9EqxOacCL08mDQiDbVvUeO8m41) used in our experiments. Please download and zip it into **./data/CLEVR** if you want to use it with our model.
+Dataset:
+[64x64 CLEVR-G](https://drive.google.com/open?id=10yP0ki9EqxOacCL08mDQiDbVvUeO8m41).
+Please download and zip it into **./data/CLEVR** if you want to use it with our model.
 
 **Pre-trained Model**
 
-Please download pre-trained models from:
+This is the pretrained model for PNP-Net no the SIMPLE-net
 
 - [PNP-Net CLEVR-G 64x64](https://drive.google.com/open?id=1VusqEqIHZibRqKbXyIxJDxBRTp9AZP0y)
 
@@ -72,14 +60,14 @@ Please download pre-trained models from:
 
 ## Configurations
 
-We use [global configuration files](configs/pnp_net_configs.yaml) to set up all configs, including the training settings and model hyper-parameters. Please check the file and corresponding code for more detail.
+[global configuration files](configs/pnp_net_configs.yaml) is used to set up all configs, including the training settings and model hyper-parameters.
 
 
 ## Code Guide
 
 ### Neural Operators
 
-The core of PNP-Net is a set of **neural modular operators**. We briefly introduce them here and provide the pointers to corresponding code.
+The core of PNP-Net is a set of **neural modular operators**. A brief introduction by the authers are here:
 
 
 - **Concept Mapping Operator**
@@ -161,13 +149,6 @@ python mains/pnpnet_main.py --config_path configs/pnp_net_configs.yaml
 
 
 ## Results
-
-Detailed results can be checked in our paper. We provide some samples here to show PNP-Net's capability for generating images for different complex scenes. The dataset used here is CLEVR-G 128x128, every scene contains at most 8 objects.
-
-
-<div align='center'> 
-  <img src='images/samples.png' width='512px'>
-</div> 
 
 When the scene becomes too complex, PNP-Net can suffer from the following problems:
 
