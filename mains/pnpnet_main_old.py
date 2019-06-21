@@ -9,22 +9,22 @@ import pytz
 import scipy.misc
 import os.path as osp
 import os
-from PIL import Image
-from os.path import isfile, join
-from os import listdir
 import numpy as np
 import random
 import pdb
-import copy
-from shutil import copyfile
+from PIL import Image
+from os import listdir
+from os.path import isfile, join
 
 from lib.data_loader.color_mnist_tree_multi import COLORMNISTTREE
 from lib.data_loader.clevr.clevr_tree import CLEVRTREE
 from lib.config import load_config, Struct
 from models.PNPNet.pnp_net import PNPNet
-from models.PNPNet.simplified_pnp_net import PNPNet as SimplePNPNet
 from trainers.pnpnet_trainer import PNPNetTrainer
 from lib.weight_init import weights_init
+import copy
+from shutil import copyfile
+
 
 parser = argparse.ArgumentParser(description='PNPNet - main model experiment')
 parser.add_argument('--config_path', type=str, default='./configs/pnp_net_configs.yaml', metavar='C',
@@ -94,21 +94,15 @@ def main():
     im_size = gen_loader.im_size[2]
 
     # model
-    if configs.net == 'PNP':
-        Net = PNPNet
-    elif configs.net == 'SIMPLE':
-        Net = SimplePNPNet
-    else:
-        raise ValueError('configs.net ?= ', configs.net, 'not a valid value')
-    model = Net(hiddim=configs.hiddim, latentdim=configs.latentdim,
-                word_size=[configs.latentdim, configs.word_size, configs.word_size], pos_size=[8, 1, 1],
-                nres=configs.nr_resnet, nlayers=4,
-                nonlinear='elu', dictionary=train_loader.dictionary,
-                op=[configs.combine_op, configs.describe_op],
-                lmap_size=im_size // 2 ** configs.ds,
-                downsample=configs.ds, lambdakl=-1, bg_bias=configs.bg_bias,
-                normalize=configs.normalize,
-                loss=configs.loss, debug_mode=False)
+    model = PNPNet(hiddim=configs.hiddim, latentdim=configs.latentdim,
+                   word_size=[configs.latentdim, configs.word_size, configs.word_size], pos_size=[8, 1, 1],
+                   nres=configs.nr_resnet, nlayers=4,
+                   nonlinear='elu', dictionary=train_loader.dictionary,
+                   op=[configs.combine_op, configs.describe_op],
+                   lmap_size=im_size // 2 ** configs.ds,
+                   downsample=configs.ds, lambdakl=-1, bg_bias=configs.bg_bias,
+                   normalize=configs.normalize,
+                   loss=configs.loss, debug_mode=False)
 
     if configs.checkpoint is not None and len(configs.checkpoint) > 0:
         model.load_state_dict(torch.load(configs.checkpoint))
@@ -118,6 +112,10 @@ def main():
 
     if configs.mode == 'train':
         train(model, train_loader, test_loader, gen_loader, configs=configs)
+    elif configs.mode == 'single_test':
+        print(exp_dir)
+        print('Start generating...')
+        generate_single(model, gen_loader=gen_loader, num_sample=configs.num_samples, target_dir=exp_dir)
     elif configs.mode == 'test':
         print(exp_dir)
         print('Start generating...')
@@ -141,11 +139,12 @@ def main():
 def train(model, train_loader, test_loader, gen_loader, configs):
     model.train()
     # optimizer, it's better to set up lr for some modules separately so that the whole training become more stable
-    params = [
+    optimizer = optim.Adamax([
         {'params': model.reader.parameters(), 'lr': 0.2 * configs.lr},
         {'params': model.h_mean.parameters(), 'lr': 0.1 * configs.lr},
         {'params': model.h_var.parameters(), 'lr': 0.1 * configs.lr},
         {'params': model.writer.parameters()},
+        {'params': model.vis_dist.parameters()},
         {'params': model.pos_dist.parameters()},
         {'params': model.combine.parameters()},
         {'params': model.describe.parameters()},
@@ -154,14 +153,7 @@ def train(model, train_loader, test_loader, gen_loader, configs):
         {'params': model.renderer.parameters()},
         {'params': model.bias_mean.parameters()},
         {'params': model.bias_var.parameters()}
-        ]
-    if configs.net == 'PNP':
-        params.append({'params': model.vis_dist.parameters()})
-    elif configs.net == 'SIMPLE':
-        pass
-    else:
-        raise ValueError('configs.net ?= ', configs.net, 'not a valid value')
-    optimizer = optim.Adamax(params, lr=configs.lr)
+    ], lr=configs.lr)
 
     model.cuda()
 
@@ -200,6 +192,55 @@ def generate(model, gen_loader, num_sample, target_dir):
 
         with torch.no_grad():
             data = Variable(data).cuda()
+
+            samples_image_dict = dict()
+            batch_size = None
+            for j in range(num_sample):
+                sample = model.generate(data, trees)
+                if not batch_size:
+                    batch_size = sample.size(0)
+                for i in range(0, sample.size(0)):
+                    samples_image_dict.setdefault(i, list()).append(sample.cpu().data.numpy().transpose(0, 2, 3, 1)[i])
+                model.clean_tree(trees)
+
+            for i in range(batch_size):
+                samples = np.clip(np.stack(samples_image_dict[i], axis=0), -1, 1)
+                for j in range(num_sample):
+                    sample = samples[j]
+                    scipy.misc.imsave(osp.join(sample_dirs[j], 'image{:05d}.png'.format(image_idx)), sample)
+                    print(j)
+                image_idx += 1
+
+
+def generate_single(model, gen_loader, num_sample, target_dir, tree=None):
+    model.eval()
+    model.cuda()
+
+    epoch_end = False
+    sample_dirs = []
+    for i in range(1):
+        sample_dir = osp.join(target_dir, 'test-data-single-{}'.format(0))
+        if not osp.isdir(sample_dir):
+            os.mkdir(sample_dir)
+        sample_dirs.append(sample_dir)
+
+    image_idx = 0
+    while epoch_end is False:
+        data, trees, _, epoch_end = gen_loader.next_batch()
+
+        if tree is not None:
+            trees[0] = tree
+        tree = trees[0]
+        tree.word ='red'
+        tree.function = 'describe'
+        #tree.num_children = 0
+        #tree.children = []
+        tree.children[0].word = 'sphere'
+        tree.children[0].children[0].word = 'rubber'
+        tree.children[0].children[0].children = []
+        tree.children[0].children[0].num_children = 0
+        with torch.no_grad():
+            data = Variable(data).cuda()
   
             samples_image_dict = dict()
             batch_size = None
@@ -210,14 +251,15 @@ def generate(model, gen_loader, num_sample, target_dir):
                 for i in range(0, sample.size(0)):
                     samples_image_dict.setdefault(i, list()).append(sample.cpu().data.numpy().transpose(0, 2, 3, 1)[i])
                 model.clean_tree(trees)
-  
+
             for i in range(batch_size):
                 samples = np.clip(np.stack(samples_image_dict[i], axis=0), -1, 1)
                 for j in range(num_sample):
                     sample = samples[j]
-                    scipy.misc.imsave(osp.join(sample_dirs[j], 'image{:05d}_{:d}.png'.format(image_idx, j)), sample)
+                    scipy.misc.imsave(osp.join(sample_dirs[0], 'image{:05d}_{:d}.png'.format(image_idx, j)), sample)
                     print(j)
                 image_idx += 1
+
 
 def sample_tree(model, test_loader, tree_idx, base_dir, num_sample):
     """
@@ -252,7 +294,6 @@ def sample_tree(model, test_loader, tree_idx, base_dir, num_sample):
             tabular(target_dir, osp.join(target_dir, '{}.png'.format(tree_idx)))
 
 
-
 def sample_all_combinations_tree(model, test_loader, tree_idx, base_dir, num_sample):
     """
     Sample multiple image instances for a specified tree in the test dataset
@@ -264,11 +305,11 @@ def sample_all_combinations_tree(model, test_loader, tree_idx, base_dir, num_sam
     """
     model.eval()
     model.cuda()
-
     for i in range(1, 5):
         target_dir = osp.join(base_dir, '{}'.format(i))
         if not osp.isdir(target_dir):
             os.makedirs(target_dir)
+
     attrs = [
         ['sphere', 'cube', 'cylinder'],
         ['red', 'brown', 'purple', 'cyan', 'yellow', 'green', 'gray', 'blue'],
@@ -288,9 +329,7 @@ def sample_all_combinations_tree(model, test_loader, tree_idx, base_dir, num_sam
         with torch.no_grad():
             data = Variable(data).cuda()
             for comb in combinations:
-                new_comb = [c for c in comb if c != 'zero']
-                comb_str = '_'.join(new_comb)
-                num_comb = len(new_comb)
+                comb_str = '_'.join(comb)
                 print(comb_str)
                 target_dir = osp.join(base_dir, 'sample-combinations/tree-{}'.format(comb_str))
                 if not osp.isdir(target_dir):
@@ -316,9 +355,9 @@ def fix(base_dir):
     combinations = []
     get_all_combination_subsets(attrs, combinations)
     for i in range(1, 5):
-        target_dir = osp.join(base_dir, 'attrs-{}'.format(i))
-        if not osp.isdir(target_dir):
-            os.makedirs(target_dir)
+      target_dir = osp.join(base_dir, 'attrs-{}'.format(i))
+      if not osp.isdir(target_dir):
+        os.makedirs(target_dir)
     for comb in combinations:
         num_attr = len(comb)
         filename = '_'.join(comb) + '.png'
@@ -336,9 +375,8 @@ def get_all_combination_subsets(lists, result, list_i=0, collected=[]):
         get_all_combination_subsets(lists, result, list_i+1, collected)
         collected.pop()
     if list_i != 0:
-        collected.append('zero')
         get_all_combination_subsets(lists, result, list_i+1, collected)
-        collected.pop()
+
 
 def modify_tree(tree, words):
     for i, w in enumerate(words):

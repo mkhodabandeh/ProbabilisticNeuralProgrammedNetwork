@@ -1,0 +1,43 @@
+# Random seed
+seed: 12138
+#
+mode: train
+dataset: CLEVR
+checkpoint:
+#checkpoint: /share/storage/mkhodabandeh/research/zhiwei/ProbabilisticNeuralProgrammedNetwork/results/CLEVR_64_MULTI_LARGE_ZERO/PNP-Net-zero/checkpoints/model_epoch_60.pth
+data_folder: CLEVR_64_MULTI_LARGE_ZERO
+base_dir: /share/storage/mkhodabandeh/research/zhiwei/ProbabilisticNeuralProgrammedNetwork/data/CLEVR
+project_dir: /share/storage/mkhodabandeh/research/zhiwei/ProbabilisticNeuralProgrammedNetwork
+exp_dir_name: PNP-Net-zero
+num_samples: 100
+net: PNP
+# Hyper parameter
+hiddim: 160
+latentdim: 15
+pos_size: [8, 1, 1]
+nr_resnet: 5
+word_size: 16
+ds: 2
+combine_op: gPoE
+describe_op: CAT_gPoE
+maskweight: 2.0
+bg_bias: False
+normalize: batch_norm
+loss: l1
+# Training
+batch_size: 16
+epochs: 500
+gpu_id: 0
+log_interval: 10
+lr: 0.001
+kl_beta: 5
+alpha_ub: 0.6
+pos_beta: 1
+warmup_iter: 100
+sample_interval: 1
+validate_interval: 500
+save_interval: 20
+# Sampling
+tree_idx: 0
+all_combinations: False
+

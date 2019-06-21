@@ -1,20 +1,19 @@
 # Random seed
 seed: 12138
 #
-mode: sample
+mode: train
 dataset: CLEVR
-#checkpoint:
-checkpoint: /home/mkhodabandeh/projects/research/ProbabilisticNeuralProgrammedNetwork/results/CLEVR_64_MULTI_LARGE/PNP-Net/checkpoints/model_epoch_360.pth
+checkpoint:
+#checkpoint: /home/mkhodabandeh/projects/research/zhiwei/ProbabilisticNeuralProgrammedNetwork/checkpoints/model_epoch_265.pth
 data_folder: CLEVR_64_MULTI_LARGE
-base_dir: /home/mkhodabandeh/projects/research/ProbabilisticNeuralProgrammedNetwork/data/CLEVR/
-project_dir: /home/mkhodabandeh/projects/research/ProbabilisticNeuralProgrammedNetwork
-net: PNP # PNP or SIMPLE
-exp_dir_name: PNP-Net
-generate_one: True
+base_dir: /share/storage/mkhodabandeh/research/zhiwei/ProbabilisticNeuralProgrammedNetwork/data/CLEVR
+project_dir: /share/storage/mkhodabandeh/research/zhiwei/ProbabilisticNeuralProgrammedNetwork
+exp_dir_name: Simple-Net-all
+net: SIMPLE
 num_samples: 100
 # Hyper parameter
 hiddim: 160
-latentdim: 64
+latentdim: 15
 pos_size: [8, 1, 1]
 nr_resnet: 5
 word_size: 16
@@ -27,7 +26,6 @@ normalize: batch_norm
 loss: l1
 # Training
 batch_size: 16
-# batch_size: 1
 epochs: 500
 gpu_id: 0
 log_interval: 10
@@ -38,7 +36,8 @@ pos_beta: 1
 warmup_iter: 100
 sample_interval: 1
 validate_interval: 500
-save_interval: 5
+save_interval: 20
 # Sampling
 tree_idx: 0
 all_combinations: False
+
